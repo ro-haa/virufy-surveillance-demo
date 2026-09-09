@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Virufy Respiratory Surveillance (Demo)</title>
+<meta name="description" content="Illustrative demo dashboard for app-based respiratory screening. Sample data only. Not real results."/>
+
+<style>
+:root{--ink:#0f2430;--ink2:#3d4f5b;--muted:#6a7b87;--line:#dbe4ea;--bg:#e9eef2;
+--card:#fff;--teal:#0e7490;--deep:#0b3b52;--gold:#e2a53c;
+--low:#10b981;--mod:#f59e0b;--high:#e11d48;--shadow:0 6px 22px rgba(15,36,48,.08)}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{font-family:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;color:var(--ink);
+background:var(--bg);font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+.app{display:flex;flex-direction:column;height:100vh;min-height:560px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 22px;
+background:linear-gradient(100deg,var(--deep),#0e6d86);color:#fff}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.mark{height:38px;border-radius:9px;background:#fff;display:grid;place-items:center;flex:none;padding:0 14px;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.mark span{font-weight:800;font-size:17px;letter-spacing:-.02em;color:var(--teal)}
+.brand h1{font-size:19px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.01em}
+.brand .sub{margin:2px 0 0;font-size:12.5px;color:#bfe0ea;font-weight:400}
+.demobadge{align-self:center;margin-left:4px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#cfeaf1;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);padding:3px 9px;border-radius:999px;flex:none}
+.modes{display:flex;background:rgba(255,255,255,.12);border-radius:999px;padding:4px;flex:none}
+.mode{appearance:none;border:0;background:transparent;color:#d8eef4;font:inherit;font-size:13.5px;
+font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s}
+.mode.is-active{background:#fff;color:var(--deep)}
+.mode:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.grid{flex:1;display:grid;grid-template-columns:minmax(0,1.72fr) minmax(320px,1fr);gap:16px;padding:16px;min-height:0}
+.mapcard{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.maphead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px 10px}
+.maphead h2{margin:0;font-size:15px;font-weight:700}
+.maphead .hint{font-size:12px;color:var(--muted);margin-top:2px}
+.filters{display:flex;gap:14px;align-items:center;flex:none}
+.filters label{font-size:12.5px;color:var(--ink2);display:flex;gap:6px;align-items:center;cursor:pointer;user-select:none}
+.filters input{accent-color:var(--teal)}
+.app.mode-today .filters{display:none}
+.mapwrap{position:relative;flex:1;min-height:0;padding:0 10px}
+.map{width:100%;height:100%;display:block}
+.land{fill:#eef3f6;stroke:#c7d2dc;stroke-width:1.3}
+.mk{cursor:pointer}
+.school{stroke:#fff;stroke-width:1.1;fill-opacity:.9;transition:opacity .2s}
+.hospital .box{stroke:#fff;stroke-width:1.5}
+.hospital .plus{stroke:#fff;stroke-width:1.6;fill:none}
+/* projected positivity colours (At scale) */
+.school.pos-low,.hospital.pos-low .box{fill:var(--low)}
+.school.pos-moderate,.hospital.pos-moderate .box{fill:var(--mod)}
+.school.pos-high,.hospital.pos-high .box{fill:var(--high)}
+.hospital.live .box{fill:var(--deep)}
+.halo{fill:var(--gold);opacity:.30}
+.hospital.live .halo{animation:pulse 2.6s ease-in-out infinite;transform-origin:center}
+@keyframes pulse{0%,100%{opacity:.16}50%{opacity:.42}}
+.mk.sel .box{stroke:var(--deep);stroke-width:2.4}
+.mk.sel.school{stroke:var(--deep);stroke-width:2.4}
+.mk:focus-visible .box{stroke:var(--deep);stroke-width:2.6}
+.emlabel{font-size:12px;font-weight:700;fill:var(--teal);text-anchor:middle;pointer-events:none}
+.emlabel.off{fill:#9aa7b4;font-weight:500}
+/* Today view hides projected colour */
+.app.mode-today .school{fill:#aab7c1!important;opacity:.28}
+.app.mode-today .hospital:not(.live) .box{fill:#c0ccd4!important}
+.app.mode-today .hospital:not(.live){opacity:.62}
+.app.mode-scale .hospital.live .halo{opacity:.20}
+.map.hide-schools .schools{display:none}
+.map.hide-hospitals .hospitals{display:none}
+.tip{position:absolute;pointer-events:none;background:var(--deep);color:#fff;font-size:12px;line-height:1.35;
+padding:8px 10px;border-radius:8px;max-width:240px;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;
+transform:translateY(-4px);transition:opacity .12s;z-index:5}
+.tip.on{opacity:1;transform:translateY(0)}
+.tip .r{color:#bfe0ea;font-size:11px}
+.legend{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--ink2)}
+.legend .g{display:flex;align-items:center;gap:7px}
+.sw{width:13px;height:13px;border-radius:3px;display:inline-block;background:#8ea0ab}
+.sw.dot{border-radius:50%}
+.sw.livesw{background:var(--deep);box-shadow:0 0 0 3px rgba(226,165,60,.5)}
+.sw.low{background:var(--low)}.sw.mod{background:var(--mod)}.sw.high{background:var(--high)}
+.pos-scale{display:flex;align-items:center;gap:10px;margin-left:auto}
+.pos-scale .lbl{color:var(--muted)}
+.app.mode-today .pos-scale{display:none}
+.app.mode-scale .today-rep{display:none}
+.today-rep{margin-left:auto;color:var(--muted)}
+.side{display:flex;flex-direction:column;gap:16px;min-height:0;overflow:auto}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 18px}
+.eyebrow{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 3px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px}
+.chip.live{background:#e6f4f1;color:#0b6b52}
+.chip.plan{background:#eef2f6;color:#5a6b77}
+.chip.proj{background:#fbefda;color:#8a5a12}
+.dotmark{width:8px;height:8px;border-radius:50%}
+.selname{font-size:17px;font-weight:700;margin:8px 0 2px;line-height:1.2}
+.selmeta{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.bignum{font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.bignum small{display:block;font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:0;margin-top:6px}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:7px 0;border-top:1px solid var(--line)}
+.kv:first-of-type{border-top:0}.kv .k{color:var(--muted)}.kv .v{font-weight:600;text-align:right}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--v,#a63);padding:1px 4px}
+.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+.capture{background:#f4f8fa;border-radius:12px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:var(--ink2);line-height:1.5}
+.capture b{color:var(--ink)}
+.app.mode-today .scalePanel{display:none}
+.app.mode-scale .todayPanel{display:none}
+.statrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:12px 0 2px}
+.stat{background:#f4f8fa;border-radius:12px;padding:10px 12px}
+.stat .n{font-size:22px;font-weight:800;letter-spacing:-.01em}
+.stat .l{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+.resbox{border:1px solid var(--line);background:#f7fafb;border-radius:12px;padding:14px;margin-top:14px}
+.projtag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#8a5a12;
+background:#f6e6c6;padding:3px 9px;border-radius:999px}
+.resbox h3{margin:9px 0 2px;font-size:13.5px;font-weight:700;color:var(--ink)}
+.resbox p{margin:2px 0 12px;font-size:11.5px;color:var(--muted);line-height:1.5}
+.cat{margin:10px 0}
+.catlab{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink2);margin-bottom:5px;line-height:1.25}
+.catlab b{font-weight:700;color:var(--ink)}
+.track{display:block;height:9px;background:#e7eef2;border-radius:5px;overflow:hidden}
+.fill{display:block;height:100%;background:var(--teal);border-radius:5px}
+.disclaimer{padding:11px 22px;font-size:11.5px;color:#5c6d79;background:#e2e8ec;border-top:1px solid #d3dce2;text-align:center;line-height:1.45}
+.disclaimer b{color:var(--ink)}
+@media (max-width:900px){.grid{grid-template-columns:1fr}.mapwrap{height:52vh}.brand .sub{display:none}}
+@media (prefers-reduced-motion:reduce){.hospital.live .halo{animation:none}*{transition:none!important}}
+</style></head>
+<body>
+<div class="app mode-today" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark"><span>Virufy</span></div>
+      <div><h1>Respiratory Surveillance</h1>
+      <p class="sub">App-based respiratory screening across a partner network</p></div>
+      <span class="demobadge">Demo data</span>
+    </div>
+    <div class="modes" role="tablist" aria-label="View">
+      <button class="mode is-active" data-mode="today" role="tab" aria-selected="true">Today</button>
+      <button class="mode" data-mode="scale" role="tab" aria-selected="false">At scale</button>
+    </div>
+  </header>
+  <main class="grid">
+    <section class="mapcard">
+      <div class="maphead">
+        <div><h2 id="mapTitle">Active collection site today</h2>
+        <div class="hint" id="mapHint">One pilot site active. Other sites shown as planned.</div></div>
+        <div class="filters">
+          <label><input type="checkbox" id="fSchools" checked> Schools</label>
+          <label><input type="checkbox" id="fHospitals" checked> Hospitals</label>
+        </div>
+      </div>
+      <div class="mapwrap">
+        <svg class="map" id="map" viewBox="0 0 680 600" role="img" aria-label="Illustrative map of a sample region showing demo screening sites">
+          <path class="land" d="M 150 90 C 260 40, 470 50, 545 120 C 610 180, 600 300, 560 380 C 520 460, 560 520, 470 545 C 360 575, 210 560, 140 500 C 70 440, 60 360, 90 280 C 115 210, 90 140, 150 90 Z"/>
+          <g class="emirates" id="emirates"></g>
+          <g class="schools" id="schools"></g>
+          <g class="hospitals" id="hospitals"></g>
+        </svg>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="legend">
+        <span class="g"><span class="sw dot"></span> Public school</span>
+        <span class="g"><span class="sw"></span> Partner hospital</span>
+        <span class="g"><span class="sw livesw"></span> Live pilot</span>
+        <span class="pos-scale"><span class="lbl">Projected positivity:</span>
+          <span class="g"><span class="sw dot low"></span>low</span>
+          <span class="g"><span class="sw dot mod"></span>moderate</span>
+          <span class="g"><span class="sw dot high"></span>high</span></span>
+        <span class="today-rep">Positivity colour is shown in the At scale view.</span>
+      </div>
+    </section>
+    <aside class="side">
+      <div class="panel">
+        <p class="eyebrow">Selected site</p>
+        <span class="chip" id="selChip"></span>
+        <div class="selname" id="selName"></div>
+        <div class="selmeta" id="selMeta"></div>
+        <div id="selBody"></div>
+      </div>
+      <div class="panel todayPanel">
+        <p class="eyebrow">Live pilot</p>
+        <div class="bignum">24 <small>enrollments at the pilot site</small></div>
+        <div class="capture"><b>What the app captures:</b> cough, breath and vowel-sound audio, screened by Virufy's model for respiratory signals. This is the only active site today; data collection is underway.</div>
+        <p class="note">Switch to <b>At scale</b> to see the full network with projected results.</p>
+      </div>
+      <div class="panel scalePanel">
+        <p class="eyebrow">Network overview</p>
+        <div class="statrow">
+          <div class="stat"><div class="n">9</div><div class="l">Hospitals</div></div>
+          <div class="stat"><div class="n">24</div><div class="l">Schools</div></div>
+          <div class="stat"><div class="n">5</div><div class="l">Districts</div></div>
+        </div>
+        <div class="resbox">
+          <h3>Projected positivity mix</h3>
+          <p>Estimated share of positive screens by respiratory category.</p>
+          <div class="cat"><div class="catlab"><span>Upper airway (viral, e.g. Flu / RSV)</span><b>44%</b></div><span class="track"><span class="fill" style="width:44%"></span></span></div>
+          <div class="cat"><div class="catlab"><span>Asthma</span><b>34%</b></div><span class="track"><span class="fill" style="width:34%"></span></span></div>
+          <div class="cat"><div class="catlab"><span>Lower airway (e.g. pneumonia, tracheobronchitis)</span><b>22%</b></div><span class="track"><span class="fill" style="width:22%"></span></span></div>
+        </div>
+        <p class="note">Projected values shown for illustration.</p>
+      </div>
+    </aside>
+  </main>
+  <footer class="disclaimer">
+    <b>Demonstration dashboard.</b> All sites, locations, enrollment counts, positivity and category figures shown are fictional sample data for illustration only. They do not represent any real study, partner, patient, or screening result. &middot; Virufy demo
+  </footer>
+</div>
+<script>
+const DATA={"viewBox":"0 0 680 600",
+"regions":[
+ {"name":"North District","x":300,"y":100,"net":true},
+ {"name":"East District","x":525,"y":255,"net":true},
+ {"name":"West District","x":120,"y":295,"net":true},
+ {"name":"Central District","x":250,"y":250,"net":true},
+ {"name":"Coast District","x":340,"y":540,"net":false}
+],
+"sites":[
+ {"id":"h0","name":"Central Regional Hospital","type":"hospital","district":"Central District","x":330,"y":300,"live":true,"patients":24},
+ {"id":"h1","name":"Riverside General Hospital","type":"hospital","district":"West District","x":220,"y":220,"live":false,"pos":"moderate","proj":380},
+ {"id":"h2","name":"Harborview Hospital","type":"hospital","district":"North District","x":460,"y":180,"live":false,"pos":"high","proj":340},
+ {"id":"h3","name":"Eastgate Hospital","type":"hospital","district":"East District","x":500,"y":330,"live":false,"pos":"moderate","proj":380},
+ {"id":"h4","name":"Northfield Hospital","type":"hospital","district":"North District","x":300,"y":150,"live":false,"pos":"low","proj":380},
+ {"id":"h5","name":"Westbrook Hospital","type":"hospital","district":"West District","x":160,"y":360,"live":false,"pos":"moderate","proj":380},
+ {"id":"h6","name":"Hillcrest Hospital","type":"hospital","district":"Coast District","x":400,"y":460,"live":false,"pos":"moderate","proj":220},
+ {"id":"h7","name":"Lakeside Hospital","type":"hospital","district":"Coast District","x":250,"y":440,"live":false,"pos":"low","proj":260},
+ {"id":"h8","name":"Meadowpark Hospital","type":"hospital","district":"East District","x":440,"y":280,"live":false,"pos":"low","proj":420},
+ {"id":"s0","name":"Public school","type":"school","district":"West District","x":190,"y":190,"live":false,"pos":"low","proj":240},
+ {"id":"s1","name":"Public school","type":"school","district":"West District","x":210,"y":175,"live":false,"pos":"low","proj":120},
+ {"id":"s2","name":"Public school","type":"school","district":"North District","x":260,"y":150,"live":false,"pos":"low","proj":160},
+ {"id":"s3","name":"Public school","type":"school","district":"North District","x":320,"y":140,"live":false,"pos":"moderate","proj":300},
+ {"id":"s4","name":"Public school","type":"school","district":"North District","x":360,"y":160,"live":false,"pos":"moderate","proj":240},
+ {"id":"s5","name":"Public school","type":"school","district":"North District","x":420,"y":160,"live":false,"pos":"high","proj":200},
+ {"id":"s6","name":"Public school","type":"school","district":"North District","x":455,"y":205,"live":false,"pos":"moderate","proj":160},
+ {"id":"s7","name":"Public school","type":"school","district":"West District","x":150,"y":310,"live":false,"pos":"low","proj":120},
+ {"id":"s8","name":"Public school","type":"school","district":"West District","x":175,"y":345,"live":false,"pos":"low","proj":200},
+ {"id":"s9","name":"Public school","type":"school","district":"West District","x":205,"y":385,"live":false,"pos":"moderate","proj":240},
+ {"id":"s10","name":"Public school","type":"school","district":"Coast District","x":245,"y":420,"live":false,"pos":"moderate","proj":120},
+ {"id":"s11","name":"Public school","type":"school","district":"Coast District","x":290,"y":455,"live":false,"pos":"low","proj":160},
+ {"id":"s12","name":"Public school","type":"school","district":"Coast District","x":330,"y":470,"live":false,"pos":"low","proj":200},
+ {"id":"s13","name":"Public school","type":"school","district":"Coast District","x":370,"y":455,"live":false,"pos":"high","proj":160},
+ {"id":"s14","name":"Public school","type":"school","district":"Coast District","x":420,"y":430,"live":false,"pos":"moderate","proj":240},
+ {"id":"s15","name":"Public school","type":"school","district":"East District","x":465,"y":370,"live":false,"pos":"low","proj":200},
+ {"id":"s16","name":"Public school","type":"school","district":"East District","x":495,"y":300,"live":false,"pos":"low","proj":240},
+ {"id":"s17","name":"Public school","type":"school","district":"East District","x":470,"y":255,"live":false,"pos":"moderate","proj":160},
+ {"id":"s18","name":"Public school","type":"school","district":"Central District","x":420,"y":300,"live":false,"pos":"low","proj":200},
+ {"id":"s19","name":"Public school","type":"school","district":"Central District","x":375,"y":345,"live":false,"pos":"moderate","proj":120},
+ {"id":"s20","name":"Public school","type":"school","district":"Central District","x":300,"y":360,"live":false,"pos":"moderate","proj":300},
+ {"id":"s21","name":"Public school","type":"school","district":"Central District","x":255,"y":305,"live":false,"pos":"low","proj":200},
+ {"id":"s22","name":"Public school","type":"school","district":"Central District","x":290,"y":250,"live":false,"pos":"low","proj":160},
+ {"id":"s23","name":"Public school","type":"school","district":"North District","x":390,"y":215,"live":false,"pos":"moderate","proj":160}
+]};const NS="http://www.w3.org/2000/svg";
+const app=document.getElementById('app'),map=document.getElementById('map');
+const gEm=document.getElementById('emirates'),gS=document.getElementById('schools'),gH=document.getElementById('hospitals');
+const tip=document.getElementById('tip'),wrap=document.querySelector('.mapwrap');
+const PL={low:'low',moderate:'moderate',high:'high'};
+DATA.regions.forEach(e=>{const t=document.createElementNS(NS,'text');t.setAttribute('x',e.x);t.setAttribute('y',e.y);
+ t.setAttribute('class','emlabel'+(e.net?'':' off'));t.textContent=e.name;gEm.appendChild(t);});
+let selected=null;
+function tipHTML(s){
+ if(s.live) return `<b>${s.name}</b><br>Live pilot · ${s.district}<br><span class="r">24 enrollments</span>`;
+ const typ=s.type==='school'?'Public school':'Partner hospital';
+ if(app.classList.contains('mode-scale')) return `<b>${s.name}</b><br>${typ} · ${s.district}<br><span class="r">Projected positivity ${PL[s.pos]}</span>`;
+ return `<b>${s.name}</b><br>${typ} · ${s.district}<br><span class="r">Planned site</span>`;
+}
+function showTip(s,ev){tip.innerHTML=tipHTML(s);const r=wrap.getBoundingClientRect();
+ let x=ev.clientX-r.left+12,y=ev.clientY-r.top+12;tip.style.left=Math.min(x,r.width-200)+'px';
+ tip.style.top=Math.max(6,y-10)+'px';tip.classList.add('on');}
+function hideTip(){tip.classList.remove('on');}
+function selectSite(s,node){selected=s;
+ document.querySelectorAll('.mk.sel').forEach(n=>n.classList.remove('sel'));if(node)node.classList.add('sel');
+ const typ=s.type==='school'?'Public school':'Partner hospital';const scale=app.classList.contains('mode-scale');
+ document.getElementById('selName').textContent=s.name;
+ document.getElementById('selMeta').textContent=typ+' · '+s.district;
+ const chip=document.getElementById('selChip'),body=document.getElementById('selBody');
+ if(s.live){chip.className='chip live';chip.innerHTML='<span class="dotmark" style="background:#0b6b52"></span> Live pilot';
+  body.innerHTML=`<div class="kv"><span class="k">Status</span><span class="v">Data collection underway</span></div>
+   <div class="kv"><span class="k">Enrollments</span><span class="v">24</span></div>
+   <div class="kv"><span class="k">Data source</span><span class="v">Virufy app</span></div>`;
+ }else if(scale){chip.className='chip proj';chip.innerHTML='<span class="dotmark" style="background:var(--gold)"></span> Projected';
+  body.innerHTML=`<div class="kv"><span class="k">Status</span><span class="v">Projected</span></div>
+   <div class="kv"><span class="k">Projected positivity</span><span class="v">${PL[s.pos]}</span></div>
+   <div class="kv"><span class="k">Role</span><span class="v">Screening node</span></div>`;
+ }else{chip.className='chip plan';chip.innerHTML='<span class="dotmark" style="background:#8a99a4"></span> Planned site';
+  body.innerHTML=`<div class="kv"><span class="k">Status</span><span class="v">Not yet onboarded</span></div>
+   <div class="kv"><span class="k">Role</span><span class="v">Screening node</span></div>
+   <div class="kv"><span class="k">Live data</span><span class="v">None yet</span></div>`;}
+}
+function bind(node,s){node.setAttribute('tabindex','0');
+ node.addEventListener('mouseenter',ev=>showTip(s,ev));node.addEventListener('mousemove',ev=>showTip(s,ev));
+ node.addEventListener('mouseleave',hideTip);node.addEventListener('click',()=>selectSite(s,node));
+ node.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();selectSite(s,node);}});}
+let liveNode=null;
+DATA.sites.forEach(s=>{
+ if(s.type==='school'){const c=document.createElementNS(NS,'circle');c.setAttribute('cx',s.x);c.setAttribute('cy',s.y);
+  c.setAttribute('r',5);c.setAttribute('class','mk school pos-'+s.pos);bind(c,s);gS.appendChild(c);}
+ else{const g=document.createElementNS(NS,'g');g.setAttribute('class','mk hospital '+(s.live?'live':'pos-'+s.pos));
+  if(s.live){const h=document.createElementNS(NS,'circle');h.setAttribute('cx',s.x);h.setAttribute('cy',s.y);h.setAttribute('r',14);h.setAttribute('class','halo');g.appendChild(h);}
+  const r=document.createElementNS(NS,'rect');r.setAttribute('x',s.x-8);r.setAttribute('y',s.y-8);r.setAttribute('width',16);r.setAttribute('height',16);r.setAttribute('rx',4);r.setAttribute('class','box');g.appendChild(r);
+  const p=document.createElementNS(NS,'path');p.setAttribute('d',`M ${s.x} ${s.y-4} L ${s.x} ${s.y+4} M ${s.x-4} ${s.y} L ${s.x+4} ${s.y}`);p.setAttribute('class','plus');g.appendChild(p);
+  bind(g,s);gH.appendChild(g);if(s.live)liveNode=g;}
+});
+function setMode(m){app.classList.remove('mode-today','mode-scale');app.classList.add('mode-'+m);
+ document.querySelectorAll('.mode').forEach(b=>{const on=b.dataset.mode===m;b.classList.toggle('is-active',on);b.setAttribute('aria-selected',on);});
+ document.getElementById('mapTitle').textContent=m==='today'?'Active collection site today':'Projected results across the network';
+ document.getElementById('mapHint').textContent=m==='today'
+  ?'One pilot site active. Other sites shown as planned.'
+  :'Every hospital and school as a screening node, coloured by projected positivity.';
+ if(selected)selectSite(selected,document.querySelector('.mk.sel'));}
+document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+document.getElementById('fSchools').addEventListener('change',e=>map.classList.toggle('hide-schools',!e.target.checked));
+document.getElementById('fHospitals').addEventListener('change',e=>map.classList.toggle('hide-hospitals',!e.target.checked));
+selectSite(DATA.sites.find(s=>s.live),liveNode);
+</script></body></html>
